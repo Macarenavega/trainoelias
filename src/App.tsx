@@ -29,13 +29,13 @@ export default function App() {
               update((s) => ({ ...s, active: undefined }))
               setInWorkout(false)
             }}
-            onSwap={(index, exercise, group) =>
+            onSwap={(index, exercise, group, remember) =>
               update((s) => {
                 if (!s.active) return s
                 const swaps = { ...s.swaps }
-                // Volver al original borra la elección
-                if (exercise.swappedFrom) swaps[group] = exercise.id
-                else delete swaps[group]
+                // Por defecto el cambio vale solo para esta sesión; volver al original borra lo recordado
+                if (!exercise.swappedFrom) delete swaps[group]
+                else if (remember) swaps[group] = exercise.id
                 const exercises = s.active.exercises.map((e, i) => (i === index ? exerciseLog(exercise, s.history) : e))
                 return { ...s, swaps, active: { ...s.active, exercises } }
               })

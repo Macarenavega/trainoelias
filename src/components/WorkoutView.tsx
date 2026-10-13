@@ -11,8 +11,11 @@ type Props = {
   onChange: (fn: (w: WorkoutLog) => WorkoutLog) => void
   onFinish: () => void
   onDiscard: () => void
-  /** Cambia el ejercicio de la posición indicada por otra opción de su grupo */
-  onSwap: (index: number, exercise: Exercise, group: string) => void
+  /**
+   * Cambia el ejercicio de la posición indicada por otra opción de su grupo.
+   * Por defecto solo para esta sesión; con `remember` se usa también en las próximas.
+   */
+  onSwap: (index: number, exercise: Exercise, group: string, remember: boolean) => void
 }
 
 const dateFmt = new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short' })
@@ -25,6 +28,7 @@ export function WorkoutView({ workout, history, timer, onChange, onFinish, onDis
   const warmupDone = workout.warmup.every(Boolean)
   const [showWarmup, setShowWarmup] = useState(!warmupDone)
   const [swapping, setSwapping] = useState<number | null>(null)
+  const [remember, setRemember] = useState(false)
 
   const updateExercise = (i: number, fn: (e: ExerciseLog) => ExerciseLog) =>
     onChange((w) => ({ ...w, exercises: w.exercises.map((e, j) => (j === i ? fn(e) : e)) }))
@@ -148,52 +152,9 @@ export function WorkoutView({ workout, history, timer, onChange, onFinish, onDis
             <section className={`card ${allDone ? 'opacity-70' : ''}`}>
               <div className="flex items-start justify-between gap-2">
                 <h3 className="font-semibold leading-snug">{ex.name}</h3>
-                {allDone ? (
-                  <span className="text-emerald-600 dark:text-emerald-400">✓</span>
-                ) : (
-                  swap && (
-                    <button
-                      className="shrink-0 rounded-lg border border-line px-2 py-1 text-xs font-medium"
-                      onClick={() => setSwapping(swapping === ei ? null : ei)}
-                      aria-expanded={swapping === ei}
-                    >
-                      ⇄ Cambiar
-                    </button>
-                  )
-                )}
+                {allDone && <span className="text-emerald-600 dark:text-emerald-400">✓</span>}
               </div>
               {m.swappedFrom && <p className="text-xs text-muted">En lugar de: {m.swappedFrom}</p>}
-              {swap && swapping === ei && (
-                <div className="mt-3 rounded-xl border border-line bg-page p-3">
-                  <p className="text-sm font-medium">¿Falta el material o está ocupado? Elige otra opción:</p>
-                  <ul className="mt-2 space-y-2">
-                    {swap.options.map((opt, oi) => {
-                      const current = opt.id === ex.exerciseId
-                      return (
-                        <li key={opt.id}>
-                          <button
-                            className={`w-full rounded-lg border px-3 py-2 text-left text-sm ${
-                              current ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40' : 'border-line bg-surface'
-                            }`}
-                            disabled={current}
-                            onClick={() => {
-                              if (ex.sets.some((s) => s.done) && !confirm('Ya marcaste series de este ejercicio. ¿Cambiarlo igual?'))
-                                return
-                              onSwap(ei, opt, swap.group)
-                              setSwapping(null)
-                            }}
-                          >
-                            {opt.name}
-                            {oi === 0 && <span className="text-muted"> (original)</span>}
-                            {current && <span className="text-emerald-700 dark:text-emerald-400"> · actual</span>}
-                          </button>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                  <p className="mt-2 text-xs text-muted">La app recordará la elección para las próximas sesiones.</p>
-                </div>
-              )}
               <p className="mt-1 text-sm text-muted">
                 {formatTarget(m)}
                 {ex.rest > 0 && ` · descanso ${ex.rest >= 60 && ex.rest % 60 === 0 ? `${ex.rest / 60}'` : `${ex.rest}"`}`}
@@ -212,6 +173,64 @@ export function WorkoutView({ workout, history, timer, onChange, onFinish, onDis
                 </p>
               )}
               <ExerciseGuide guide={m.guide} />
+              {swap && !allDone && (
+                <button
+                  className="mt-1 block text-xs text-muted underline underline-offset-2"
+                  onClick={() => {
+                    setSwapping(swapping === ei ? null : ei)
+                    setRemember(false)
+                  }}
+                  aria-expanded={swapping === ei}
+                >
+                  {m.swappedFrom ? 'Volver al original o cambiar' : 'Alternativas (opcional)'}
+                </button>
+              )}
+              {swap && swapping === ei && (
+                <div className="mt-3 rounded-xl border border-line bg-page p-3">
+                  <p className="text-sm font-medium">La rutina recomienda el ejercicio original.</p>
+                  <p className="mt-0.5 text-xs text-muted">
+                    Usa una alternativa solo si lo necesitas (material ocupado o que falta) o si lo prefieres.
+                  </p>
+                  <ul className="mt-2 space-y-2">
+                    {swap.options.map((opt, oi) => {
+                      const current = opt.id === ex.exerciseId
+                      return (
+                        <li key={opt.id}>
+                          <button
+                            className={`w-full rounded-lg border px-3 py-2 text-left text-sm ${
+                              current ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40' : 'border-line bg-surface'
+                            }`}
+                            disabled={current}
+                            onClick={() => {
+                              if (ex.sets.some((s) => s.done) && !confirm('Ya marcaste series de este ejercicio. ¿Cambiarlo igual?'))
+                                return
+                              onSwap(ei, opt, swap.group, remember)
+                              setSwapping(null)
+                              setRemember(false)
+                            }}
+                          >
+                            {opt.name}
+                            {oi === 0 && <span className="text-muted"> (original)</span>}
+                            {current && <span className="text-emerald-700 dark:text-emerald-400"> · actual</span>}
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                  <label className="mt-3 flex items-start gap-2 text-xs">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 size-4 accent-emerald-600"
+                      checked={remember}
+                      onChange={(e) => setRemember(e.target.checked)}
+                    />
+                    <span>
+                      Usar siempre la alternativa que elija en las próximas sesiones
+                      <span className="block text-muted">Si no lo marcas, el cambio vale solo para hoy.</span>
+                    </span>
+                  </label>
+                </div>
+              )}
 
               {m.levelHint && (
                 <label className="mt-3 block">

@@ -42,11 +42,12 @@ export function SettingsView({ state, update }: Props) {
       <section className="card">
         <h2 className="font-semibold">Ejercicios reemplazados</h2>
         <p className="mt-1 text-sm text-muted">
-          Si falta el material o está ocupado (Smith, barra, banda…), toca <b>⇄ Cambiar</b> durante el entrenamiento y
-          elige otra opción. La elección se recuerda para las próximas sesiones.
+          La rutina siempre usa los ejercicios originales. Si algún día falta el material o está ocupado, en cada ejercicio
+          hay un enlace <b>Alternativas (opcional)</b>: el cambio vale solo para esa sesión, salvo que marques usarlo
+          siempre. Aquí aparecen los que elegiste usar siempre.
         </p>
         {Object.keys(state.swaps).length === 0 ? (
-          <p className="mt-2 text-sm text-muted italic">Ningún ejercicio reemplazado por ahora.</p>
+          <p className="mt-2 text-sm text-muted italic">Ninguno: se usa la rutina original.</p>
         ) : (
           <ul className="mt-3 divide-y divide-line">
             {Object.entries(state.swaps).map(([group, altId]) => (
