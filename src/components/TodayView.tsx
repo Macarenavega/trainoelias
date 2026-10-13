@@ -1,17 +1,31 @@
 import { useState } from 'react'
-import { DAY_NAMES, SCHEDULE, SESSIONS, alternateFor, formatTarget, type SessionId } from '../data/routine'
+import {
+  DAY_NAMES,
+  DAY_SHORT,
+  SESSIONS,
+  SESSION_ORDER,
+  alternateFor,
+  formatTarget,
+  missingSessions,
+  planWeek,
+  resolveSession,
+  weekKey,
+  type SessionId,
+} from '../data/routine'
 import type { AppState } from '../lib/store'
 
 type Props = {
   state: AppState
   onStart: (id: SessionId) => void
   onResume: () => void
+  /** Guarda los días elegidos de una semana (undefined = volver al plan por defecto) */
+  onWeekPlan: (key: string, days: number[] | undefined) => void
 }
 
-export function TodayView({ state, onStart, onResume }: Props) {
+export function TodayView({ state, onStart, onResume, onWeekPlan }: Props) {
   const [now] = useState(() => new Date())
   const today = now.getDay()
-  const plan = SCHEDULE[today]
+  const plan = planWeek(state.weekPlans[weekKey(now)])[today]
   const [picked, setPicked] = useState<SessionId | undefined>(plan.session)
   const sessionId = picked ?? plan.session
   const doneToday = state.history.some(
@@ -36,6 +50,7 @@ export function TodayView({ state, onStart, onResume }: Props) {
       ) : sessionId ? (
         <SessionCard
           id={sessionId}
+          swaps={state.swaps}
           now={now}
           isToday={sessionId === plan.session}
           doneToday={doneToday}
@@ -67,19 +82,21 @@ export function TodayView({ state, onStart, onResume }: Props) {
         </section>
       )}
 
-      <WeekPlan today={today} />
+      <WeekPlanner state={state} now={now} onWeekPlan={onWeekPlan} />
     </div>
   )
 }
 
 function SessionCard({
   id,
+  swaps,
   now,
   isToday,
   doneToday,
   onStart,
 }: {
   id: SessionId
+  swaps: AppState['swaps']
   now: Date
   isToday: boolean
   doneToday: boolean
@@ -96,13 +113,14 @@ function SessionCard({
       </h2>
       <p className="text-sm text-muted">Tiempo estimado: {session.estimate}</p>
       <ul className="mt-3 divide-y divide-line">
-        {session.exercises.map((ex) => {
+        {resolveSession(session, swaps).map((ex) => {
           const alt = alternateFor(ex, now)
           return (
             <li key={ex.id} className="flex justify-between gap-3 py-2 text-sm">
               <span>
                 {ex.name}
                 {alt && <span className="block text-xs text-emerald-700 dark:text-emerald-400">Esta semana: {alt}</span>}
+                {ex.swappedFrom && <span className="block text-xs text-muted">en lugar de: {ex.swappedFrom}</span>}
               </span>
               <span className="shrink-0 text-right text-muted tabular-nums">{formatTarget(ex)}</span>
             </li>
@@ -116,14 +134,91 @@ function SessionCard({
   )
 }
 
-function WeekPlan({ today }: { today: number }) {
-  const order = [1, 2, 3, 4, 5, 6, 0]
+const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0]
+const shortDate = new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short' })
+
+function WeekPlanner({
+  state,
+  now,
+  onWeekPlan,
+}: {
+  state: AppState
+  now: Date
+  onWeekPlan: (key: string, days: number[] | undefined) => void
+}) {
+  const [offset, setOffset] = useState(0)
+  const [editing, setEditing] = useState(false)
+  const ref = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset * 7)
+  const key = weekKey(ref)
+  const chosen = state.weekPlans[key]
+  const plan = planWeek(chosen)
+  const days = chosen ?? WEEK_ORDER.filter((d) => plan[d].session)
+  const missing = missingSessions(chosen)
+  const monday = new Date(`${key}T00:00:00`)
+  const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6)
+  const today = offset === 0 ? now.getDay() : -1
+
+  const toggle = (d: number) => onWeekPlan(key, days.includes(d) ? days.filter((x) => x !== d) : [...days, d])
+
   return (
     <section className="card">
-      <h3 className="font-semibold">Semana</h3>
-      <ul className="mt-2 space-y-1 text-sm">
-        {order.map((d) => {
-          const p = SCHEDULE[d]
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="font-semibold">Semana</h3>
+        <button className="text-sm font-medium text-emerald-700 dark:text-emerald-400" onClick={() => setEditing((v) => !v)}>
+          {editing ? 'Listo' : 'Elegir días'}
+        </button>
+      </div>
+      <div className="mt-2 flex gap-2">
+        {['Esta semana', 'Próxima semana'].map((label, i) => (
+          <button key={label} className={`chip ${offset === i ? 'chip-active' : ''}`} onClick={() => setOffset(i)}>
+            {label}
+          </button>
+        ))}
+      </div>
+      <p className="mt-2 text-xs text-muted">
+        {shortDate.format(monday)} – {shortDate.format(sunday)}
+        {chosen ? ' · días elegidos' : ' · plan por defecto'}
+      </p>
+
+      {editing && (
+        <div className="mt-3 rounded-xl border border-line bg-page p-3">
+          <p className="text-sm font-medium">¿Qué días entrenas?</p>
+          <div className="mt-2 flex justify-between gap-1">
+            {WEEK_ORDER.map((d) => (
+              <button
+                key={d}
+                aria-label={DAY_NAMES[d]}
+                aria-pressed={days.includes(d)}
+                className={`size-10 rounded-full border text-sm font-semibold ${
+                  days.includes(d) ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-line bg-surface'
+                }`}
+                onClick={() => toggle(d)}
+              >
+                {DAY_SHORT[d]}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-muted">
+            Las sesiones se reparten en orden: {SESSION_ORDER.map((id) => `Día ${id.slice(1)} (${SESSIONS[id].place})`).join(', ')}.
+          </p>
+          {chosen && (
+            <button className="mt-2 text-xs underline" onClick={() => onWeekPlan(key, undefined)}>
+              Volver al plan por defecto
+            </button>
+          )}
+        </div>
+      )}
+
+      {missing.length > 0 && (
+        <p className="mt-3 rounded-lg bg-amber-50 p-2 text-sm dark:bg-amber-950/40">
+          ⚠️ Con {days.length} {days.length === 1 ? 'día' : 'días'} quedan fuera:{' '}
+          {missing.map((id) => SESSIONS[id].name.split(' — ')[0]).join(', ')}.
+        </p>
+      )}
+
+      <ul className="mt-3 space-y-1 text-sm">
+        {WEEK_ORDER.map((d) => {
+          const p = plan[d]
           const s = p.session ? SESSIONS[p.session] : undefined
           return (
             <li key={d} className={`flex justify-between gap-3 ${d === today ? 'font-semibold' : ''}`}>

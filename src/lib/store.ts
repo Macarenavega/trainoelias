@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { SESSIONS, alternateFor, type SessionId, type Target } from '../data/routine'
+import { SESSIONS, alternateFor, resolveSession, type Exercise, type SessionId, type Swaps, type Target } from '../data/routine'
 
 export type SetLog = { value: number | null; weight: number | null; done: boolean }
 
@@ -28,11 +28,15 @@ export type AppState = {
   version: 1
   history: WorkoutLog[]
   active?: WorkoutLog
+  /** Ejercicios reemplazados (grupo → alternativa) */
+  swaps: Swaps
+  /** Días de entrenamiento elegidos por semana (clave: lunes AAAA-MM-DD; 0 = domingo … 6 = sábado) */
+  weekPlans: Record<string, number[]>
 }
 
 const KEY = 'trainoelias:v1'
 
-const initialState: AppState = { version: 1, history: [] }
+const initialState: AppState = { version: 1, history: [], swaps: {}, weekPlans: {} }
 
 function load(): AppState {
   try {
@@ -77,23 +81,25 @@ export function newWorkout(state: AppState, sessionId: SessionId): WorkoutLog {
     sessionName: session.name,
     startedAt: today.toISOString(),
     warmup: session.warmup.map(() => false),
-    exercises: session.exercises.map((ex) => {
-      const prev = lastLog(state.history, ex.id)
-      return {
-        exerciseId: ex.id,
-        name: ex.name,
-        target: ex.target,
-        rest: ex.rest,
-        level: alternateFor(ex, today) ?? prev?.level ?? '',
-        notes: '',
-        // El peso arranca con el de la última vez, para ajustar solo si cambia
-        sets: Array.from({ length: ex.sets }, (_, i) => ({
-          value: null,
-          weight: prev?.sets[i]?.weight ?? lastWeight(prev),
-          done: false,
-        })),
-      }
-    }),
+    exercises: resolveSession(session, state.swaps).map((ex) => exerciseLog(ex, state.history, today)),
+  }
+}
+
+export function exerciseLog(ex: Exercise, history: WorkoutLog[], today = new Date()): ExerciseLog {
+  const prev = lastLog(history, ex.id)
+  return {
+    exerciseId: ex.id,
+    name: ex.name,
+    target: ex.target,
+    rest: ex.rest,
+    level: alternateFor(ex, today) ?? prev?.level ?? '',
+    notes: '',
+    // El peso arranca con el de la última vez, para ajustar solo si cambia
+    sets: Array.from({ length: ex.sets }, (_, i) => ({
+      value: null,
+      weight: prev?.sets[i]?.weight ?? lastWeight(prev),
+      done: false,
+    })),
   }
 }
 

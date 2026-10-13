@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { SESSIONS, blockPhases, formatTarget, type Exercise } from '../data/routine'
+import { SESSIONS, blockPhases, findInSession, formatTarget, type Exercise } from '../data/routine'
 import { lastLog, summarize, type ExerciseLog, type SetLog, type WorkoutLog } from '../lib/store'
 import type { Phase, Timer } from '../lib/timer'
 import { ExerciseGuide } from './ExerciseGuide'
@@ -11,17 +11,20 @@ type Props = {
   onChange: (fn: (w: WorkoutLog) => WorkoutLog) => void
   onFinish: () => void
   onDiscard: () => void
+  /** Cambia el ejercicio de la posición indicada por otra opción de su grupo */
+  onSwap: (index: number, exercise: Exercise, group: string) => void
 }
 
 const dateFmt = new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short' })
 
-export function WorkoutView({ workout, history, timer, onChange, onFinish, onDiscard }: Props) {
+export function WorkoutView({ workout, history, timer, onChange, onFinish, onDiscard, onSwap }: Props) {
   const session = SESSIONS[workout.sessionId]
-  const meta = new Map(session.exercises.map((ex) => [ex.id, ex]))
+  const find = (id: string) => findInSession(session, id)
   const totalSets = workout.exercises.reduce((n, e) => n + e.sets.length, 0)
   const doneSets = workout.exercises.reduce((n, e) => n + e.sets.filter((s) => s.done).length, 0)
   const warmupDone = workout.warmup.every(Boolean)
   const [showWarmup, setShowWarmup] = useState(!warmupDone)
+  const [swapping, setSwapping] = useState<number | null>(null)
 
   const updateExercise = (i: number, fn: (e: ExerciseLog) => ExerciseLog) =>
     onChange((w) => ({ ...w, exercises: w.exercises.map((e, j) => (j === i ? fn(e) : e)) }))
@@ -130,12 +133,14 @@ export function WorkoutView({ workout, history, timer, onChange, onFinish, onDis
       )}
 
       {workout.exercises.map((ex, ei) => {
-        const m = meta.get(ex.exerciseId)
-        if (!m) return null
+        const found = find(ex.exerciseId)
+        if (!found) return null
+        const m = found.exercise
+        const swap = found.swap
         const allDone = ex.sets.every((s) => s.done)
         const prev = lastLog(history, ex.exerciseId)
         const prevDate = prev && history.find((w) => w.exercises.includes(prev))?.startedAt
-        const prevBlock = ei > 0 ? meta.get(workout.exercises[ei - 1].exerciseId)?.block : undefined
+        const prevBlock = ei > 0 ? find(workout.exercises[ei - 1].exerciseId)?.exercise.block : undefined
         const header = m.block && m.block !== prevBlock ? m.block : undefined
         return (
           <div key={ex.exerciseId} className="space-y-2">
@@ -143,8 +148,52 @@ export function WorkoutView({ workout, history, timer, onChange, onFinish, onDis
             <section className={`card ${allDone ? 'opacity-70' : ''}`}>
               <div className="flex items-start justify-between gap-2">
                 <h3 className="font-semibold leading-snug">{ex.name}</h3>
-                {allDone && <span className="text-emerald-600 dark:text-emerald-400">✓</span>}
+                {allDone ? (
+                  <span className="text-emerald-600 dark:text-emerald-400">✓</span>
+                ) : (
+                  swap && (
+                    <button
+                      className="shrink-0 rounded-lg border border-line px-2 py-1 text-xs font-medium"
+                      onClick={() => setSwapping(swapping === ei ? null : ei)}
+                      aria-expanded={swapping === ei}
+                    >
+                      ⇄ Cambiar
+                    </button>
+                  )
+                )}
               </div>
+              {m.swappedFrom && <p className="text-xs text-muted">En lugar de: {m.swappedFrom}</p>}
+              {swap && swapping === ei && (
+                <div className="mt-3 rounded-xl border border-line bg-page p-3">
+                  <p className="text-sm font-medium">¿Falta el material o está ocupado? Elige otra opción:</p>
+                  <ul className="mt-2 space-y-2">
+                    {swap.options.map((opt, oi) => {
+                      const current = opt.id === ex.exerciseId
+                      return (
+                        <li key={opt.id}>
+                          <button
+                            className={`w-full rounded-lg border px-3 py-2 text-left text-sm ${
+                              current ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40' : 'border-line bg-surface'
+                            }`}
+                            disabled={current}
+                            onClick={() => {
+                              if (ex.sets.some((s) => s.done) && !confirm('Ya marcaste series de este ejercicio. ¿Cambiarlo igual?'))
+                                return
+                              onSwap(ei, opt, swap.group)
+                              setSwapping(null)
+                            }}
+                          >
+                            {opt.name}
+                            {oi === 0 && <span className="text-muted"> (original)</span>}
+                            {current && <span className="text-emerald-700 dark:text-emerald-400"> · actual</span>}
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                  <p className="mt-2 text-xs text-muted">La app recordará la elección para las próximas sesiones.</p>
+                </div>
+              )}
               <p className="mt-1 text-sm text-muted">
                 {formatTarget(m)}
                 {ex.rest > 0 && ` · descanso ${ex.rest >= 60 && ex.rest % 60 === 0 ? `${ex.rest / 60}'` : `${ex.rest}"`}`}

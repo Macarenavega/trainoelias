@@ -39,6 +39,18 @@ export type Exercise = {
   /** Qué anotar como "variante" para medir la progresión */
   levelHint?: string
   guide: Guide
+  /** Nombre del ejercicio original cuando este es un reemplazo elegido */
+  swappedFrom?: string
+}
+
+/** Ejercicio equivalente para cuando falta material o está ocupado (hereda series, reps y descanso) */
+export type Alternative = {
+  id: string
+  name: string
+  note?: string
+  /** Fuerza a registrar (o no) kg */
+  weight?: boolean
+  guide: Guide
 }
 
 export type SessionId = 'd1' | 'd2' | 'd3' | 'd4' | 'd5' | 'd6'
@@ -922,4 +934,405 @@ export function blockPhases(t: Target): { label: string; seconds: number }[] | u
     default:
       return undefined
   }
+}
+
+// ─── Reemplazos de ejercicios ────────────────────────────────────────────────
+
+const ALT = {
+  sentadillaMancuernas: {
+    id: 'alt-sentadilla-mancuernas',
+    name: 'Sentadilla con mancuernas a los lados',
+    note: 'Si la Smith está ocupada. Misma profundidad (90°).',
+    weight: true,
+    guide: {
+      steps: [
+        'De pie, una mancuerna en cada mano a los lados del cuerpo, pies al ancho de hombros.',
+        'Baja hasta 90° de rodilla con el pecho arriba y la espalda neutra.',
+        'Sube empujando con todo el pie.',
+      ],
+      video: 'sentadilla con mancuernas técnica',
+      image: 'Dumbbell_Squat',
+    },
+  },
+  gobletPesada: {
+    id: 'alt-goblet-pesada',
+    name: 'Sentadilla goblet pesada (kettlebell o mancuerna)',
+    weight: true,
+    guide: {
+      steps: [
+        'Sostén la kettlebell o mancuerna pegada al pecho con ambas manos.',
+        'Baja con el pecho arriba y los codos dentro de las rodillas.',
+        'Sube empujando el suelo con todo el pie.',
+      ],
+      video: 'goblet squat pesada técnica',
+      image: 'Goblet_Squat',
+    },
+  },
+  zancadaAtras: {
+    id: 'alt-zancada-atras',
+    name: 'Zancada atrás con mancuernas',
+    weight: true,
+    guide: {
+      steps: [
+        'De pie con una mancuerna en cada mano.',
+        'Da un paso largo hacia atrás y baja hasta que la rodilla trasera casi toque el suelo.',
+        'Vuelve empujando con el talón de la pierna delantera. Todas las reps de un lado y cambia.',
+      ],
+      video: 'zancada hacia atrás con mancuernas técnica',
+      image: 'Dumbbell_Rear_Lunge',
+    },
+  },
+  bulgaraKettlebell: {
+    id: 'alt-bulgara-kettlebell',
+    name: 'Zancada búlgara con kettlebells',
+    weight: true,
+    guide: {
+      steps: [
+        'Pie trasero sobre el banco, una kettlebell en cada mano (o una en goblet al pecho).',
+        'Baja recto hasta que la rodilla trasera casi toque el suelo.',
+        'Sube con el talón delantero. Todas las reps de una pierna y cambia.',
+      ],
+      video: 'sentadilla búlgara con kettlebell',
+      image: 'Split_Squat_with_Dumbbells',
+      imageNote: 'La imagen usa mancuernas.',
+    },
+  },
+  jalonPecho: {
+    id: 'alt-jalon-pecho',
+    name: 'Jalón al pecho en polea alta',
+    note: 'Si la barra de dominadas está ocupada',
+    weight: true,
+    guide: {
+      steps: [
+        'Sentado en la polea alta con los muslos bajo el soporte, agarre prono algo más ancho que los hombros.',
+        'Tira de la barra hacia la parte alta del pecho llevando los codos abajo y atrás.',
+        'Sube controlado hasta estirar los brazos sin soltar la tensión.',
+      ],
+      video: 'jalón al pecho polea técnica',
+      image: 'Wide-Grip_Lat_Pulldown',
+    },
+  },
+  rdlKettlebell: {
+    id: 'alt-rdl-kettlebell',
+    name: 'Peso muerto rumano con kettlebells',
+    weight: true,
+    guide: {
+      steps: [
+        'De pie con una kettlebell en cada mano delante de los muslos, rodillas un poco flexionadas.',
+        'Lleva la cadera atrás bajando las pesas pegadas a las piernas, espalda neutra.',
+        'Sube apretando glúteos.',
+      ],
+      video: 'peso muerto rumano con kettlebell',
+      image: 'Stiff-Legged_Dumbbell_Deadlift',
+      imageNote: 'La imagen usa mancuernas.',
+    },
+  },
+  rdlSmith: {
+    id: 'alt-rdl-smith',
+    name: 'Peso muerto rumano en Smith',
+    weight: true,
+    guide: {
+      steps: [
+        'Barra de la Smith a media altura del muslo, agarre al ancho de hombros.',
+        'Rodillas un poco flexionadas: lleva la cadera atrás bajando la barra pegada a las piernas.',
+        'Baja hasta sentir los isquios y sube apretando glúteos.',
+      ],
+      video: 'peso muerto rumano en multipower smith',
+      image: 'Smith_Machine_Stiff-Legged_Deadlift',
+    },
+  },
+  pantorrillaSmith: {
+    id: 'alt-pantorrilla-smith',
+    name: 'Pantorrillas de pie en Smith',
+    weight: true,
+    guide: {
+      steps: [
+        'Puntas de los pies sobre un disco o escalón, barra de la Smith sobre los trapecios.',
+        'Sube en puntas lo más alto posible y pausa 1-2".',
+        'Baja lento hasta estirar la pantorrilla.',
+      ],
+      video: 'elevación de talones en smith',
+      image: 'Smith_Machine_Calf_Raise',
+    },
+  },
+  hipThrustMancuerna: {
+    id: 'alt-hip-thrust-mancuerna',
+    name: 'Hip Thrust con mancuerna',
+    note: 'La opción indicada en la rutina si la Smith molesta en la zona lumbar',
+    weight: true,
+    guide: {
+      steps: [
+        'Espalda alta apoyada en el banco, mancuerna sobre la cadera sujeta con ambas manos.',
+        'Sube empujando con los talones hasta alinear rodillas-cadera-hombros, sin arquear la zona lumbar.',
+        'Pausa arriba apretando glúteos y baja controlado.',
+      ],
+      video: 'hip thrust con mancuerna técnica',
+      image: 'Barbell_Hip_Thrust',
+      imageNote: 'La imagen usa barra; tú con una mancuerna sobre la cadera.',
+    },
+  },
+  fondosParalelas: {
+    id: 'alt-fondos-paralelas',
+    name: 'Fondos en paralelas',
+    guide: {
+      steps: [
+        'Sostente en las paralelas con los brazos estirados y el cuerpo vertical.',
+        'Baja doblando los codos hacia atrás hasta unos 90°.',
+        'Empuja hasta estirar los brazos sin encoger los hombros.',
+      ],
+      video: 'fondos en paralelas tríceps técnica',
+      image: 'Dips_-_Triceps_Version',
+    },
+  },
+  tricepsPolea: {
+    id: 'alt-triceps-polea',
+    name: 'Extensión de tríceps en polea alta',
+    weight: true,
+    guide: {
+      steps: [
+        'Frente a la polea alta, codos pegados al cuerpo.',
+        'Empuja hacia abajo hasta estirar los brazos; solo se mueven los antebrazos.',
+        'Vuelve despacio hasta 90°.',
+      ],
+      video: 'extensión de tríceps en polea alta',
+      image: 'Triceps_Pushdown',
+    },
+  },
+  remoPoleaUnaMano: {
+    id: 'alt-remo-polea-una-mano',
+    name: 'Remo en polea baja a una mano',
+    weight: true,
+    guide: {
+      steps: [
+        'Sentado frente a la polea baja con un agarre simple.',
+        'Tira hacia la cadera llevando el codo pegado al cuerpo, sin girar el tronco.',
+        'Vuelve estirando el brazo. Todas las reps y cambia de lado.',
+      ],
+      video: 'remo en polea baja a una mano',
+      image: 'Seated_One-arm_Cable_Pulley_Rows',
+    },
+  },
+  remoKettlebell: {
+    id: 'alt-remo-kettlebell',
+    name: 'Remo con kettlebell a una mano',
+    weight: true,
+    guide: {
+      steps: [
+        'Mano libre apoyada en el banco, espalda plana, kettlebell en la otra mano.',
+        'Tira de la kettlebell hacia la cadera con el codo pegado al cuerpo.',
+        'Baja controlado. Todas las reps y cambia de lado.',
+      ],
+      video: 'remo con kettlebell a una mano',
+      image: 'One-Arm_Kettlebell_Row',
+    },
+  },
+  facePullPolea: {
+    id: 'alt-face-pull-polea',
+    name: 'Face pull en polea',
+    weight: true,
+    guide: {
+      steps: [
+        'Polea a la altura de la cara con cuerda.',
+        'Tira hacia la cara separando las manos, codos altos y atrás.',
+        'Termina con rotación externa (pulgares atrás) y vuelve lento.',
+      ],
+      video: 'face pull en polea técnica',
+      image: 'Face_Pull',
+    },
+  },
+  pajarosMancuernas: {
+    id: 'alt-pajaros-mancuernas',
+    name: 'Pájaros con mancuernas (apoyo de pecho en banco inclinado)',
+    weight: true,
+    guide: {
+      steps: [
+        'Pecho apoyado en un banco inclinado, una mancuerna liviana en cada mano.',
+        'Abre los brazos hacia los lados con los codos apenas flexionados, apretando omóplatos.',
+        'Baja controlado.',
+      ],
+      video: 'pájaros con mancuernas en banco inclinado',
+      image: 'Reverse_Flyes',
+    },
+  },
+  curlToalla: {
+    id: 'alt-curl-toalla',
+    name: 'Curl femoral deslizando talones (toalla o discos deslizantes)',
+    guide: {
+      steps: [
+        'Boca arriba con los talones sobre una toalla en suelo liso.',
+        'Eleva la cadera y desliza los talones hacia los glúteos sin bajarla.',
+        'Vuelve a estirar despacio.',
+      ],
+      video: 'curl femoral deslizante con toalla',
+    },
+  },
+  planchaToques: {
+    id: 'alt-plancha-toques',
+    name: 'Plancha alta con toques de hombro',
+    guide: {
+      steps: [
+        'Plancha alta con las manos bajo los hombros y los pies algo separados.',
+        'Lleva una mano al hombro contrario sin rotar la cadera y vuelve. Alterna.',
+        'Abdomen y glúteos firmes todo el tiempo.',
+      ],
+      video: 'plancha con toques de hombro',
+      image: 'Plank',
+      imageNote: 'La imagen muestra la plancha en antebrazos; tú en plancha alta.',
+    },
+  },
+  pressKettlebell: {
+    id: 'alt-press-kettlebell',
+    name: 'Press militar con kettlebells',
+    weight: true,
+    guide: {
+      steps: [
+        'Kettlebells en posición de rack (a la altura de los hombros), abdomen y glúteos firmes.',
+        'Empuja hacia arriba hasta estirar los brazos sin arquear la espalda.',
+        'Baja controlado al rack.',
+      ],
+      video: 'press militar con kettlebells',
+      image: 'Two-Arm_Kettlebell_Military_Press',
+    },
+  },
+  pressSmith: {
+    id: 'alt-press-smith',
+    name: 'Press militar en Smith (sentado)',
+    weight: true,
+    guide: {
+      steps: [
+        'Banco con respaldo bajo la Smith; barra a la altura de la barbilla.',
+        'Empuja hacia arriba hasta casi estirar los brazos.',
+        'Baja controlado sin adelantar la cabeza.',
+      ],
+      video: 'press militar en multipower smith sentado',
+      image: 'Smith_Machine_Overhead_Shoulder_Press',
+    },
+  },
+  rotacionMancuerna: {
+    id: 'alt-rotacion-mancuerna',
+    name: 'Rotación externa con mancuerna liviana (tumbado de lado)',
+    weight: true,
+    guide: {
+      steps: [
+        'Tumbado de lado, codo de arriba pegado al costado y doblado a 90°, mancuerna muy liviana.',
+        'Gira el antebrazo hacia arriba sin despegar el codo.',
+        'Baja lento. Todas las reps y cambia de lado.',
+      ],
+      video: 'rotación externa de hombro con mancuerna tumbado de lado',
+      image: 'External_Rotation',
+    },
+  },
+} satisfies Record<string, Alternative>
+
+/**
+ * Alternativas por ejercicio. Los ejercicios del mismo grupo comparten la elección
+ * (por ejemplo, las tres sentadillas Smith de los días 1, 3 y 4).
+ */
+const ALTERNATIVES: Record<string, { group: string; options: Alternative[] }> = {
+  'd1-smith': { group: 'smith', options: [ALT.sentadillaMancuernas, ALT.gobletPesada] },
+  'd3-smith': { group: 'smith', options: [ALT.sentadillaMancuernas, ALT.gobletPesada] },
+  'd4-smith': { group: 'smith', options: [ALT.sentadillaMancuernas, ALT.gobletPesada] },
+  'bulgara-mancuernas': { group: 'bulgara', options: [ALT.bulgaraKettlebell, ALT.zancadaAtras] },
+  dominadas: { group: 'dominadas', options: [ALT.jalonPecho] },
+  'dominadas-lastre': { group: 'dominadas-lastre', options: [ALT.jalonPecho] },
+  'dominadas-emom': { group: 'dominadas-emom', options: [ALT.jalonPecho] },
+  'rdl-mancuernas': { group: 'rdl', options: [ALT.rdlKettlebell, ALT.rdlSmith] },
+  'pantorrillas-mancuernas': { group: 'pantorrillas', options: [ALT.pantorrillaSmith] },
+  'hip-thrust-smith': { group: 'hip-thrust', options: [ALT.hipThrustMancuerna] },
+  'fondos-banco': { group: 'fondos', options: [ALT.fondosParalelas, ALT.tricepsPolea] },
+  'remo-mancuerna': { group: 'remo', options: [ALT.remoPoleaUnaMano, ALT.remoKettlebell] },
+  'face-pull-banda': { group: 'face-pull', options: [ALT.facePullPolea, ALT.pajarosMancuernas] },
+  'curl-fitball': { group: 'curl-femoral', options: [ALT.curlToalla] },
+  'plancha-dinamica-balon': { group: 'plancha-dinamica', options: [ALT.planchaToques] },
+  'press-militar': { group: 'press-militar', options: [ALT.pressKettlebell, ALT.pressSmith] },
+  'rotacion-banda': { group: 'rotacion-hombro', options: [ALT.rotacionMancuerna] },
+}
+
+/** Elección del usuario por grupo: id de la alternativa */
+export type Swaps = Record<string, string>
+
+function toExercise(slot: Exercise, alt: Alternative): Exercise {
+  const target = alt.weight !== undefined && slot.target.kind === 'reps' ? { ...slot.target, weight: alt.weight } : slot.target
+  return {
+    ...slot,
+    id: alt.id,
+    name: alt.name,
+    note: alt.note,
+    target,
+    levelHint: undefined,
+    alternates: undefined,
+    guide: alt.guide,
+    swappedFrom: slot.name,
+  }
+}
+
+/** Opciones para un ejercicio: el original primero y luego sus alternativas */
+export function swapOptions(slot: Exercise) {
+  const entry = ALTERNATIVES[slot.id]
+  if (!entry) return undefined
+  return { group: entry.group, options: [slot, ...entry.options.map((a) => toExercise(slot, a))] }
+}
+
+/** Ejercicios de la sesión con los reemplazos elegidos aplicados */
+export function resolveSession(session: Session, swaps: Swaps = {}) {
+  return session.exercises.map((slot) => {
+    const sw = swapOptions(slot)
+    const chosen = sw && swaps[sw.group]
+    return (chosen && sw.options.find((o) => o.id === chosen)) || slot
+  })
+}
+
+/** Busca el ejercicio (original o reemplazo) dentro de una sesión */
+export function findInSession(session: Session, exerciseId: string) {
+  for (const slot of session.exercises) {
+    const swap = swapOptions(slot)
+    if (slot.id === exerciseId) return { slot, exercise: slot, swap }
+    const exercise = swap?.options.find((o) => o.id === exerciseId)
+    if (exercise) return { slot, exercise, swap }
+  }
+  return undefined
+}
+
+export function alternativeName(id: string) {
+  return Object.values(ALT).find((a) => a.id === id)?.name
+}
+
+export function groupName(group: string) {
+  const slotId = Object.entries(ALTERNATIVES).find(([, v]) => v.group === group)?.[0]
+  for (const session of Object.values(SESSIONS)) {
+    const ex = session.exercises.find((e) => e.id === slotId)
+    if (ex) return ex.name
+  }
+  return group
+}
+
+// ─── Días de entrenamiento por semana ────────────────────────────────────────
+
+export const DAY_SHORT = ['D', 'L', 'M', 'X', 'J', 'V', 'S']
+
+/** Orden de las sesiones cuando se eligen los días */
+export const SESSION_ORDER: SessionId[] = ['d1', 'd2', 'd3', 'd4', 'd5', 'd6']
+
+const REST_CUSTOM = 'Descanso'
+
+/** Lunes de la semana de una fecha, como 'AAAA-MM-DD' (clave del plan semanal) */
+export function weekKey(date: Date) {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7))
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** Plan de la semana: reparte Día 1…Día 6 en orden en los días elegidos; sin elección usa el plan por defecto */
+export function planWeek(days?: number[]): DayPlan[] {
+  if (!days) return SCHEDULE
+  const plan: DayPlan[] = Array.from({ length: 7 }, () => ({ restLabel: REST_CUSTOM }))
+  const sorted = [...days].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7))
+  sorted.slice(0, SESSION_ORDER.length).forEach((d, i) => (plan[d] = { session: SESSION_ORDER[i] }))
+  return plan
+}
+
+/** Sesiones que no entran en los días elegidos */
+export function missingSessions(days?: number[]) {
+  if (!days) return []
+  return SESSION_ORDER.slice(days.length)
 }

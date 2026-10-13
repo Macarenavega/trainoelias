@@ -4,7 +4,7 @@ import { SettingsView } from './components/SettingsView'
 import { TimerBar } from './components/TimerBar'
 import { TodayView } from './components/TodayView'
 import { WorkoutView } from './components/WorkoutView'
-import { newWorkout, useAppState } from './lib/store'
+import { exerciseLog, newWorkout, useAppState } from './lib/store'
 import { unlockAudio, useTimer } from './lib/timer'
 
 type Tab = 'today' | 'history' | 'settings'
@@ -29,6 +29,17 @@ export default function App() {
               update((s) => ({ ...s, active: undefined }))
               setInWorkout(false)
             }}
+            onSwap={(index, exercise, group) =>
+              update((s) => {
+                if (!s.active) return s
+                const swaps = { ...s.swaps }
+                // Volver al original borra la elección
+                if (exercise.swappedFrom) swaps[group] = exercise.id
+                else delete swaps[group]
+                const exercises = s.active.exercises.map((e, i) => (i === index ? exerciseLog(exercise, s.history) : e))
+                return { ...s, swaps, active: { ...s.active, exercises } }
+              })
+            }
             onFinish={() => {
               update((s) =>
                 s.active
@@ -51,6 +62,14 @@ export default function App() {
               setInWorkout(true)
             }}
             onResume={() => setInWorkout(true)}
+            onWeekPlan={(key, days) =>
+              update((s) => {
+                const weekPlans = { ...s.weekPlans }
+                if (days) weekPlans[key] = days
+                else delete weekPlans[key]
+                return { ...s, weekPlans }
+              })
+            }
           />
         ) : tab === 'history' ? (
           <HistoryView

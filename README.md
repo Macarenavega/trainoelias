@@ -7,6 +7,8 @@ Se instala en el celular como una app (PWA) y guarda todo en el propio dispositi
 ## Qué hace
 
 - **Hoy**: muestra la sesión que toca según el día (Lunes a Jueves gimnasio, Viernes y Sábado en casa, Domingo descanso). Se puede elegir otra sesión.
+- **Elegir días**: en la tarjeta "Semana" se eligen los días de esta semana o la próxima; Día 1 a Día 6 se reparten en orden.
+- **Cambiar ejercicio**: si falta el material o está ocupado (Smith, barra, banda…), el botón "⇄ Cambiar" ofrece alternativas. La elección se recuerda y se puede deshacer en Ajustes.
 - **Modo entrenamiento**: calentamiento, series con repeticiones/segundos/minutos y **kg** en los ejercicios con carga. El peso de la última vez se rellena solo.
 - **Última vez**: cada ejercicio muestra lo que se hizo en la sesión anterior, para progresar la carga.
 - **Bloques cronometrados**: AMRAP, EMOM (aviso cada minuto) y Tabata 20"/20" (aviso en cada cambio).
