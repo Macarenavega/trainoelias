@@ -1,5 +1,5 @@
-import { RECORDS, alternativeName, groupName } from '../data/routine'
-import type { AppState } from '../lib/store'
+import { PROGRAMS, alternativeName, groupName, type ProgramId } from '../data/routine'
+import { programOf, type AppState } from '../lib/store'
 
 type Props = {
   state: AppState
@@ -31,13 +31,52 @@ export function SettingsView({ state, update }: Props) {
       <h1 className="text-2xl font-bold">Ajustes</h1>
 
       <section className="card">
-        <h2 className="font-semibold">Récords y notas del plan</h2>
+        <h2 className="font-semibold">Programa</h2>
+        <p className="mt-1 text-sm text-muted">
+          Elige qué rutina usar. Cambiar de programa no borra nada: el historial y los pesos se conservan, y los
+          ejercicios que se repiten muestran tu última marca.
+        </p>
+        <div className="mt-3 space-y-2">
+          {(Object.keys(PROGRAMS) as ProgramId[]).map((id) => {
+            const p = PROGRAMS[id]
+            const current = programOf(state).id === id
+            return (
+              <button
+                key={id}
+                className={`w-full rounded-lg border px-3 py-2 text-left text-sm ${
+                  current ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40' : 'border-line bg-surface'
+                }`}
+                aria-pressed={current}
+                onClick={() => update((s) => ({ ...s, program: id }))}
+              >
+                <span className="font-medium">{p.name}</span>
+                {current && <span className="text-emerald-700 dark:text-emerald-400"> · en uso</span>}
+                <span className="block text-muted">{p.description}</span>
+              </button>
+            )
+          })}
+        </div>
+      </section>
+
+      <section className="card">
+        <h2 className="font-semibold">Últimas marcas ({programOf(state).name})</h2>
         <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
-          {RECORDS.map((r) => (
+          {programOf(state).records.map((r) => (
             <li key={r}>{r}</li>
           ))}
         </ul>
       </section>
+
+      {programOf(state).progressions.length > 0 && (
+        <section className="card">
+          <h2 className="font-semibold">Progresiones</h2>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
+            {programOf(state).progressions.map((r) => (
+              <li key={r}>{r}</li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="card">
         <h2 className="font-semibold">Ejercicios reemplazados</h2>

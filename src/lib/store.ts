@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
-import { SESSIONS, alternateFor, resolveSession, type Exercise, type SessionId, type Swaps, type Target } from '../data/routine'
+import {
+  DEFAULT_PROGRAM,
+  PROGRAMS,
+  SESSIONS,
+  alternateFor,
+  resolveSession,
+  type Exercise,
+  type ProgramId,
+  type SessionId,
+  type Swaps,
+  type Target,
+} from '../data/routine'
 
 export type SetLog = { value: number | null; weight: number | null; done: boolean }
 
@@ -32,6 +43,13 @@ export type AppState = {
   swaps: Swaps
   /** Días de entrenamiento elegidos por semana (clave: lunes AAAA-MM-DD; 0 = domingo … 6 = sábado) */
   weekPlans: Record<string, number[]>
+  /** Programa elegido (Mes 1, Mes 2…). Sin valor se usa el programa actual */
+  program?: ProgramId
+}
+
+/** Programa en uso */
+export function programOf(state: AppState) {
+  return PROGRAMS[state.program ?? DEFAULT_PROGRAM]
 }
 
 const KEY = 'trainoelias:v1'

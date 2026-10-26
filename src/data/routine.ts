@@ -53,7 +53,9 @@ export type Alternative = {
   guide: Guide
 }
 
-export type SessionId = 'd1' | 'd2' | 'd3' | 'd4' | 'd5' | 'd6'
+type M1Id = 'd1' | 'd2' | 'd3' | 'd4' | 'd5' | 'd6'
+type M2Id = 'm2d1' | 'm2d2' | 'm2d3' | 'm2d4' | 'm2d5'
+export type SessionId = M1Id | M2Id
 
 export type Session = {
   id: SessionId
@@ -61,6 +63,8 @@ export type Session = {
   place: 'Gimnasio' | 'Casa'
   estimate: string
   warmup: string[]
+  /** Título del calentamiento (por defecto "Calentamiento (10')") */
+  warmupTitle?: string
   intro?: string
   exercises: Exercise[]
 }
@@ -115,7 +119,8 @@ const adductorStretch: Guide = {
   imageNote: 'La imagen muestra la mariposa llevando el tronco hacia adelante.',
 }
 
-export const SESSIONS: Record<SessionId, Session> = {
+/** Mes 1 — Rutina 6 días (se conserva para el historial y por si se quiere volver) */
+const M1: Record<M1Id, Session> = {
   d1: {
     id: 'd1',
     name: 'Día 1 — Piernas + Tracción + Core',
@@ -858,6 +863,412 @@ export const SESSIONS: Record<SessionId, Session> = {
   },
 }
 
+/** Toma un ejercicio del Mes 1 (mismo id, así "Última vez" y el peso pasan al Mes 2) y le aplica cambios */
+function reuse(id: string, patch: Partial<Exercise>): Exercise {
+  for (const session of Object.values(M1)) {
+    const ex = session.exercises.find((e) => e.id === id)
+    if (ex) return { ...ex, alternates: undefined, display: undefined, ...patch }
+  }
+  throw new Error(`Ejercicio del Mes 1 no encontrado: ${id}`)
+}
+
+const M2_WARMUP = [
+  'Shinbox, rotación interna a externa — 8 por lado',
+  'Sentadilla profunda a estiramiento de isquios — 12',
+  'Elevaciones de pierna en mariposa — 8 por lado',
+  'Balanceos en sentadilla (squat rocks) — 12',
+  'Sentadilla profunda a sentadilla cosaca — 4 por lado',
+]
+const M2_WARMUP_BAR = [...M2_WARMUP, 'Movilidad de hombros y muñecas antes de la barra — 2\'']
+const M2_WARMUP_TITLE = 'Calentamiento dinámico (~8\', 2 rondas)'
+
+const calfSingle = (id: string, sets: number, weight: boolean, note?: string): Exercise => ({
+  id,
+  name: weight ? 'Pantorrilla a una pierna con mancuerna' : 'Pantorrilla a una pierna, sin peso',
+  sets,
+  target: weight ? { kind: 'reps', min: 12, max: 15, perSide: true, weight: true } : { kind: 'reps', min: 1, max: 99, perSide: true },
+  display: weight ? undefined : `${sets} x al fallo por pierna`,
+  rest: 45,
+  note,
+  guide: {
+    steps: [
+      'De pie sobre una pierna, puntas sobre un disco o escalón; apóyate con una mano para equilibrio.',
+      weight ? 'Mancuerna en la mano del mismo lado de la pierna que trabaja.' : 'Sin peso: llega al fallo con buena técnica.',
+      'Sube en puntas lo más alto posible, pausa 1-2" y baja lento hasta estirar.',
+    ],
+    video: 'elevación de talón a una pierna técnica',
+    image: 'Standing_Dumbbell_Calf_Raise',
+    imageNote: 'La imagen es a dos piernas; tú a una.',
+  },
+})
+
+/** Mes 2 — Semana tipo v3: hipertrofia de pierna + muscle-up + split + movilidad */
+const M2: Record<M2Id, Session> = {
+  m2d1: {
+    id: 'm2d1',
+    name: 'Día 1 — Muscle-up A + Cuádriceps',
+    place: 'Gimnasio',
+    estimate: '~57\'',
+    warmup: M2_WARMUP_BAR,
+    warmupTitle: M2_WARMUP_TITLE,
+    exercises: [
+      {
+        id: 'dominadas-explosivas',
+        name: 'Dominadas explosivas, pecho a la barra',
+        sets: 3,
+        target: { kind: 'reps', min: 4, max: 6 },
+        rest: 120,
+        note: 'Subida rápida, bajada controlada. "Romper la barra" (rotación externa de hombros)',
+        guide: {
+          steps: [
+            'Agarre prono algo más ancho que los hombros, hombros activos.',
+            'Sube lo más rápido posible buscando llevar el pecho a la barra.',
+            'Baja controlado. Piensa en "romper la barra" girando los hombros hacia afuera.',
+          ],
+          video: 'dominadas explosivas pecho a la barra muscle up progresión',
+          image: 'Pullups',
+        },
+      },
+      {
+        id: 'colgado-agarre-falso',
+        name: 'Colgado con agarre falso',
+        sets: 2,
+        target: { kind: 'seconds', min: 15, max: 20 },
+        rest: 60,
+        guide: {
+          steps: [
+            'Agarre falso: la muñeca por encima de la barra, la palma apoyada en ella (no solo los dedos).',
+            'Cuélgate con los brazos estirados manteniendo ese agarre.',
+            'Mantén el tiempo indicado; si se escapa el agarre, acorta la serie.',
+          ],
+          video: 'false grip hang muscle up agarre falso',
+        },
+      },
+      smithSquat(
+        'd1-smith',
+        4,
+        8,
+        10,
+        120,
+        'Última marca: 95 kg x 10 x 4. Si la Smith no admite más carga: bajada de 3" y pausa de 1" abajo',
+      ),
+      reuse('bulgara-mancuernas', { note: 'Última marca: 16 kg x 10 x 3. Probar 18 kg' }),
+      calfSingle('pantorrilla-una-pierna-mancuerna', 3, true, 'Mancuerna de 20 kg. Pausa 1-2" arriba'),
+    ],
+  },
+  m2d2: {
+    id: 'm2d2',
+    name: 'Día 2 — Isquio + Glúteo + Empuje',
+    place: 'Gimnasio',
+    estimate: '~57\'',
+    warmup: M2_WARMUP,
+    warmupTitle: M2_WARMUP_TITLE,
+    intro:
+      'Si escalas este día: escalar primero. En el gimnasio, sacar RDL a una pierna y pantorrilla sentado, y Archer AMRAP 8\'. (Escalada: moderada, técnica o volumen, nada máximo).',
+    exercises: [
+      reuse('rdl-mancuernas', { sets: 4, note: 'Mancuernas de 20 kg. Bajada 3", espalda neutra' }),
+      reuse('curl-fitball', { sets: 4 }),
+      {
+        id: 'rdl-una-pierna-mancuerna',
+        name: 'RDL a una pierna con mancuerna',
+        sets: 2,
+        target: { kind: 'reps', min: 10, max: 10, perSide: true, weight: true },
+        rest: 90,
+        guide: {
+          steps: [
+            'De pie sobre una pierna con la rodilla un poco flexionada, mancuerna en la mano contraria.',
+            'Inclina el tronco hacia adelante mientras la otra pierna va hacia atrás, espalda neutra y cadera nivelada.',
+            'Baja hasta sentir los isquios y vuelve apretando el glúteo. Todas las reps y cambia.',
+          ],
+          video: 'peso muerto rumano a una pierna con mancuerna',
+          image: 'Kettlebell_One-Legged_Deadlift',
+          imageNote: 'La imagen usa kettlebell.',
+        },
+      },
+      reuse('face-pull-banda', { note: 'Hacerlo antes del Archer, no al final' }),
+      reuse('archer-amrap', { display: 'AMRAP 12\', alternando brazos', note: 'Última marca: 25 series. Objetivo: 26' }),
+      {
+        id: 'pantorrilla-sentado',
+        name: 'Pantorrilla sentado (mancuerna sobre la rodilla)',
+        sets: 2,
+        target: { kind: 'reps', min: 15, max: 15, weight: true },
+        rest: 45,
+        guide: {
+          steps: [
+            'Sentado en el banco, puntas de los pies sobre un disco y la mancuerna apoyada sobre la rodilla.',
+            'Sube los talones lo más alto posible y pausa 1".',
+            'Baja lento hasta estirar.',
+          ],
+          video: 'elevación de talones sentado con mancuerna',
+          image: 'Dumbbell_Seated_One-Leg_Calf_Raise',
+        },
+      },
+    ],
+  },
+  m2d3: {
+    id: 'm2d3',
+    name: 'Día 3 — Muscle-up B + Front lever + Cuádriceps',
+    place: 'Gimnasio',
+    estimate: '~57\'',
+    warmup: M2_WARMUP_BAR,
+    warmupTitle: M2_WARMUP_TITLE,
+    exercises: [
+      {
+        id: 'transiciones-banda',
+        name: 'Transiciones asistidas con banda',
+        sets: 3,
+        target: { kind: 'reps', min: 5, max: 5 },
+        rest: 90,
+        note: 'Codos hacia atrás, no hacia los lados',
+        levelHint: 'Banda (ej: gruesa, media)',
+        guide: {
+          steps: [
+            'Banda colgada de la barra, rodillas o pies dentro de la banda.',
+            'Desde la parte alta de la dominada, pasa el pecho por encima de la barra llevando los codos hacia atrás.',
+            'Termina en apoyo arriba de la barra y baja controlado.',
+          ],
+          video: 'muscle up transición asistida con banda',
+          image: 'Muscle_Up',
+          imageNote: 'La imagen muestra el muscle-up completo, sin banda.',
+        },
+      },
+      {
+        id: 'muscle-up-negativas',
+        name: 'Muscle-up negativas (barra)',
+        sets: 3,
+        target: { kind: 'reps', min: 3, max: 5 },
+        rest: 120,
+        note: 'Bajada lenta, codos pegados al cuerpo',
+        guide: {
+          steps: [
+            'Empieza en apoyo arriba de la barra (subiendo con salto o desde un banco).',
+            'Baja lo más lento posible pasando por la transición con los codos pegados al cuerpo.',
+            'Termina colgado con los brazos estirados.',
+          ],
+          video: 'muscle up negativas tutorial',
+          image: 'Muscle_Up',
+        },
+      },
+      {
+        id: 'fondos-barras',
+        name: 'Fondos en barras',
+        sets: 2,
+        target: { kind: 'reps', min: 6, max: 10 },
+        rest: 90,
+        note: 'Hombro abajo. Llegar a 3 x 10 antes de agregar lastre',
+        guide: {
+          steps: [
+            'Sostente en las barras con los brazos estirados y los hombros abajo, lejos de las orejas.',
+            'Baja doblando los codos hasta unos 90°.',
+            'Empuja hasta estirar los brazos.',
+          ],
+          video: 'fondos en paralelas técnica',
+          image: 'Dips_-_Triceps_Version',
+        },
+      },
+      reuse('front-lever-negativas', {
+        sets: 4,
+        display: '4 x (1 izq + 1 der) = 8 reps',
+        note: 'Descanso 1\'-1\'30". Cuando salgan con brazos estirados y línea estable, alargar la bajada.',
+      }),
+      reuse('goblet-squat', { note: 'Kettlebell de 24 kg. Última marca: 22 kg x 15 x 2 (la primera serie con 20 kg)' }),
+      calfSingle('pantorrilla-una-pierna-bw', 2, false),
+    ],
+  },
+  m2d4: {
+    id: 'm2d4',
+    name: 'Día 4 — Posterior + Glúteo + Empuje',
+    place: 'Gimnasio',
+    estimate: '~59\'',
+    warmup: M2_WARMUP,
+    warmupTitle: M2_WARMUP_TITLE,
+    exercises: [
+      reuse('zancada-salto', {}),
+      {
+        id: 'hip-thrust-una-pierna',
+        name: 'Hip Thrust a una pierna (kettlebell 24 kg + mancuerna 20 kg)',
+        sets: 4,
+        target: { kind: 'reps', min: 8, max: 12, perSide: true, weight: true },
+        rest: 90,
+        note: 'Cadera nivelada, pausa 2" arriba. Última marca bilateral: 20 kg x 10 x 4 (en Smith: 95 kg)',
+        guide: {
+          steps: [
+            'Espalda alta apoyada en el banco, peso sobre la cadera, un solo pie apoyado.',
+            'Sube empujando con el talón hasta alinear rodilla-cadera-hombros, sin que la cadera se incline.',
+            'Pausa 2" arriba y baja controlado. Todas las reps y cambia.',
+            'Si 12 salen con 3 o más en reserva: pausa de 3" y bajada de 3"; después, pies sobre un step.',
+          ],
+          video: 'hip thrust a una pierna con peso',
+          image: 'Barbell_Hip_Thrust',
+          imageNote: 'La imagen es a dos piernas con barra.',
+        },
+      },
+      {
+        id: 'curl-fitball-una-pierna',
+        name: 'Curl femoral en fitball a una pierna',
+        sets: 3,
+        target: { kind: 'reps', min: 10, max: 10, perSide: true },
+        rest: 60,
+        guide: {
+          steps: [
+            'Boca arriba con un talón sobre el fitball y la otra pierna en el aire.',
+            'Eleva la cadera y, sin bajarla, acerca la pelota con el talón hacia el glúteo.',
+            'Vuelve despacio. Todas las reps y cambia.',
+          ],
+          video: 'curl femoral en fitball a una pierna',
+          image: 'Ball_Leg_Curl',
+          imageNote: 'La imagen es a dos piernas.',
+        },
+      },
+      {
+        id: 'nordico-asistido',
+        name: 'Nórdico de isquios asistido',
+        sets: 2,
+        target: { kind: 'reps', min: 6, max: 8 },
+        rest: 90,
+        note: 'Bajada lenta, las manos ayudan',
+        guide: {
+          steps: [
+            'De rodillas sobre una colchoneta, tobillos sujetos (bajo un mueble, banco o compañero).',
+            'Cuerpo recto de rodillas a cabeza: baja hacia adelante lo más lento posible.',
+            'Frena con las manos al final y empuja para volver a subir.',
+          ],
+          video: 'nordic curl asistido isquiotibiales principiantes',
+          image: 'Natural_Glute_Ham_Raise',
+        },
+      },
+      reuse('press-militar', { sets: 3, note: 'Última marca: 16 kg x 8 x 3. Probar 18 kg' }),
+      reuse('rotacion-core', { sets: 2 }),
+      {
+        id: 'final-split-d4',
+        name: 'Final: half split + paloma elevada',
+        sets: 2,
+        target: { kind: 'check', label: 'half split 30" por lado + paloma elevada 30" por lado' },
+        display: '2 x (half split 30" + paloma 30", por lado) ~4\'',
+        rest: 0,
+        guide: {
+          steps: [
+            'Half split: rodilla trasera apoyada, pierna delantera estirada; lleva la cadera atrás con la espalda recta.',
+            'Paloma elevada: pierna delantera doblada sobre el banco y la otra atrás; inclínate hacia adelante.',
+            'Caderas cuadradas, sin rebotes. 30" por lado cada uno.',
+          ],
+          video: 'half split y paloma elevada estiramiento',
+        },
+      },
+    ],
+  },
+  m2d5: {
+    id: 'm2d5',
+    name: 'Día 5 — Movilidad + Split + Core',
+    place: 'Casa',
+    estimate: '~60\'',
+    warmup: [],
+    intro:
+      'El mejor día para escalar fuerte. Si escalas este día: escalar primero; después solo el circuito dinámico y los bloques de split frontal y lateral.',
+    exercises: [
+      {
+        id: 'circuito-cadera-tobillo',
+        block: 'Dinámico',
+        name: 'Circuito de cadera y tobillo (calentamiento dinámico)',
+        sets: 2,
+        target: { kind: 'check', label: '1 ronda' },
+        display: '2 rondas (~6\')',
+        rest: 0,
+        guide: {
+          steps: M2_WARMUP,
+          video: 'movilidad de cadera shinbox sentadilla cosaca rutina',
+        },
+      },
+      reuse('bulgara-bw', {
+        block: 'Pierna',
+        name: 'Sentadilla búlgara sin peso',
+        sets: 2,
+        target: { kind: 'reps', min: 8, max: 10, perSide: true },
+        note: 'Última marca: 6 reps en una serie',
+      }),
+      {
+        id: 'puente-isometrico-una-pierna',
+        block: 'Pierna',
+        name: 'Puente de glúteo unilateral isométrico',
+        sets: 2,
+        target: { kind: 'seconds', min: 15, max: 30, perSide: true },
+        rest: 30,
+        note: 'Sin bajar la cadera, apoyando la punta del pie',
+        guide: {
+          steps: [
+            'Boca arriba, un pie apoyado (en punta) y la otra pierna estirada o recogida.',
+            'Sube la cadera y mantenla arriba, nivelada, apretando el glúteo.',
+            'Mantén el tiempo indicado y cambia de lado.',
+          ],
+          video: 'puente de glúteo a una pierna isométrico',
+          image: 'Single_Leg_Glute_Bridge',
+        },
+      },
+      { ...calfSingle('pantorrilla-una-pierna-bw', 3, false), block: 'Pierna' },
+      {
+        id: 'split-frontal',
+        block: 'Split frontal',
+        name: 'Flexor de cadera, half split, cuádriceps y paloma elevada',
+        sets: 3,
+        target: { kind: 'check', label: '1 ronda: 6-8 reps + sostener 10-30" cada uno' },
+        display: '3 rondas: 6-8 reps + sostener 10-30" cada uno (~15\')',
+        rest: 0,
+        note: 'Caderas cuadradas, sin rebotes. Avanzar cuando se sostenga con respiración normal, no por calendario',
+        guide: {
+          steps: [
+            'Flexor de cadera: zancada con rodilla trasera apoyada, empuja la cadera hacia adelante.',
+            'Half split: lleva la cadera atrás estirando la pierna delantera.',
+            'Cuádriceps: desde la zancada, toma el pie trasero y llévalo hacia el glúteo.',
+            'Paloma elevada: pierna delantera doblada sobre un apoyo, inclínate hacia adelante.',
+            'En cada uno: 6-8 repeticiones suaves entrando y saliendo, y después sostener 10-30".',
+          ],
+          video: 'rutina split frontal principiantes flexor de cadera half split',
+        },
+      },
+      {
+        id: 'split-lateral',
+        block: 'Split lateral',
+        name: 'Rana con rotaciones, mariposa y sentadilla cosaca sostenida',
+        sets: 2,
+        target: { kind: 'check', label: '30" cada una' },
+        display: '2 x 30" cada una',
+        rest: 0,
+        note: 'Rodillas sin girar hacia el suelo',
+        guide: {
+          steps: [
+            'Rana: en cuadrupedia con las rodillas abiertas, lleva la cadera atrás con pequeñas rotaciones.',
+            'Mariposa: sentado, plantas juntas, empuja suave las rodillas hacia el suelo.',
+            'Cosaca sostenida: pies muy abiertos, baja hacia un lado con la otra pierna estirada y mantén.',
+          ],
+          video: 'split lateral rana mariposa sentadilla cosaca',
+        },
+      },
+      {
+        id: 'hombro-estiramientos',
+        block: 'Hombro',
+        name: 'Estiramiento lateral en pared + sleeper stretch',
+        sets: 2,
+        target: { kind: 'check', label: '30" por lado cada uno' },
+        display: '2 x 30" por lado cada uno',
+        rest: 0,
+        guide: {
+          steps: [
+            'Lateral en pared: antebrazo apoyado por encima de la cabeza, inclina el tronco hasta sentir dorsal y tríceps.',
+            'Sleeper: acostado de lado, brazo al frente con el codo a 90°; empuja suave el antebrazo hacia el suelo.',
+            '30" por lado cada uno.',
+          ],
+          video: 'estiramiento dorsal en pared y sleeper stretch',
+        },
+      },
+      reuse('rotacion-banda', { block: 'Hombro', sets: 2 }),
+      reuse('l-sit', { block: 'Calistenia', sets: 4, note: 'Sumar 1-2" por semana' }),
+      reuse('deadbug-pallof', { block: 'Core', sets: 2 }),
+    ],
+  },
+}
+
+export const SESSIONS: Record<SessionId, Session> = { ...M1, ...M2 }
+
 export type DayPlan = { session?: SessionId; restLabel?: string }
 
 /** Índice por día de la semana: 0 = domingo … 6 = sábado */
@@ -873,12 +1284,85 @@ export const SCHEDULE: DayPlan[] = [
 
 export const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
 
-/** Récords y notas del plan */
-export const RECORDS = [
+/** Récords y notas del plan (Mes 1) */
+const RECORDS_M1 = [
   'Back Squat: ~125 kg estimado (test 100 kg x 8, promedio Epley/Brzycki). Ya no aplica directo: ahora es Smith a 90°.',
   'Hip Thrust: sin confirmar. El test de 130 kg x 4 se descartó por posible falla técnica (dolor lumbar); pendiente repetir con carga más controlada.',
   'Push up Archer (AMRAP 12\'): 22 series x 2 rep por brazo (rutina anterior).',
 ]
+
+const SCHEDULE_M2: DayPlan[] = [
+  { restLabel: 'Descanso' },
+  { session: 'm2d1' },
+  { session: 'm2d2' },
+  { restLabel: 'Recuperación (opcional: caminata 20-30\' y movilidad suave 10-15\')' },
+  { session: 'm2d3' },
+  { session: 'm2d4' },
+  { session: 'm2d5' },
+]
+
+export type ProgramId = 'm1' | 'm2'
+
+export type Program = {
+  id: ProgramId
+  name: string
+  description: string
+  /** Orden de las sesiones al elegir días */
+  order: SessionId[]
+  /** Plan por defecto: índice 0 = domingo … 6 = sábado */
+  schedule: DayPlan[]
+  /** Nota sobre qué priorizar si se cae un día */
+  priority?: string
+  records: string[]
+  progressions: string[]
+}
+
+export const PROGRAMS: Record<ProgramId, Program> = {
+  m1: {
+    id: 'm1',
+    name: 'Mes 1',
+    description: '6 días: calistenia progresiva + piernas + escalada + movilidad',
+    order: ['d1', 'd2', 'd3', 'd4', 'd5', 'd6'],
+    schedule: SCHEDULE,
+    records: RECORDS_M1,
+    progressions: [],
+  },
+  m2: {
+    id: 'm2',
+    name: 'Mes 2',
+    description: '5 días: hipertrofia de pierna + muscle-up + split + movilidad',
+    order: ['m2d1', 'm2d2', 'm2d3', 'm2d4', 'm2d5'],
+    schedule: SCHEDULE_M2,
+    priority: 'Si un día se cae, el orden de prioridad es: Día 1, Día 4, Día 3, Día 2, Día 5.',
+    records: [
+      'Sentadilla Smith: 95 kg x 10 x 4 (23 oct) · 95 kg x 12 x 3 (21 oct)',
+      'Zancada búlgara: 16 kg x 10 x 3 (23 oct)',
+      'Peso muerto rumano: 20 kg x 10 x 3 (23 oct)',
+      'Pantorrillas de pie: 20 kg x 20 x 4 (6 oct)',
+      'Dominadas con lastre: 10 kg x 8 x 4 (23 oct)',
+      'Dominadas EMOM 10\': 43 reps (21 oct)',
+      'Push up Archer AMRAP 12\': 25 series (15 oct)',
+      'Hip Thrust: 95 kg x 10 x 4 (Smith, 7 oct) · 20 kg x 10 x 4 (15 oct)',
+      'Fondos en banco: 12 x 4 (15 oct)',
+      'Remo con mancuerna: 20 kg x 10 x 2 (7 oct)',
+      'Goblet Squat: 22 kg x 15 x 2 (15 oct)',
+      'Press militar: 16 kg x 8 x 3 (5 oct)',
+      'Push up explosivo EMOM 10\': 60 reps (5 oct)',
+      'Front lever tuck negativas: 6 x (1+1) (21 oct)',
+    ],
+    progressions: [
+      'Regla general: al completar todas las series en el tope del rango, la próxima vez subir la carga mínima. En el máximo del equipo (mancuernas 20 kg, kettlebell 24 kg): bajada de 3-4", pausa de 2" en el punto más difícil, a una pierna o más reps.',
+      'Piernas: semanas 1-2 dejar 2-3 reps en reserva; semanas 3-4, 1-2 en reserva; semana 5 descarga (mitad de series).',
+      'Sentadilla Smith: si el equipo permite más carga, subir de a 2,5 kg hasta volver a 10 reps; si no, bajada de 3-4" y pausa abajo.',
+      'Muscle-up: etapa 1 (semanas 1-4) como figura en Día 1 y Día 3. Pasar a etapa 2 tras 2 sesiones seguidas con técnica limpia y sin dolor de hombro o codo: menos banda, dominadas explosivas con lastre, negativas más lentas. Si aparece dolor, sumar días de descanso.',
+      'Archer AMRAP: +1 serie cada semana o dos. Fondos en barras: llegar a 3 x 10 antes de agregar lastre.',
+      'Split: avanzar de etapa cuando se sostenga con caderas cuadradas y respiración normal, no por calendario. Estiramientos largos después de la fuerza, no antes.',
+    ],
+  },
+}
+
+/** Programa que se usa si no se eligió otro */
+export const DEFAULT_PROGRAM: ProgramId = 'm2'
 
 /** Semana ISO del año, para alternar variantes semana a semana */
 export function isoWeek(d: Date) {
@@ -1310,9 +1794,6 @@ export function groupName(group: string) {
 
 export const DAY_SHORT = ['D', 'L', 'M', 'X', 'J', 'V', 'S']
 
-/** Orden de las sesiones cuando se eligen los días */
-export const SESSION_ORDER: SessionId[] = ['d1', 'd2', 'd3', 'd4', 'd5', 'd6']
-
 const REST_CUSTOM = 'Descanso'
 
 /** Lunes de la semana de una fecha, como 'AAAA-MM-DD' (clave del plan semanal) */
@@ -1322,17 +1803,17 @@ export function weekKey(date: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-/** Plan de la semana: reparte Día 1…Día 6 en orden en los días elegidos; sin elección usa el plan por defecto */
-export function planWeek(days?: number[]): DayPlan[] {
-  if (!days) return SCHEDULE
+/** Plan de la semana: reparte las sesiones del programa en orden en los días elegidos; sin elección usa el plan por defecto */
+export function planWeek(program: Program, days?: number[]): DayPlan[] {
+  if (!days) return program.schedule
   const plan: DayPlan[] = Array.from({ length: 7 }, () => ({ restLabel: REST_CUSTOM }))
   const sorted = [...days].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7))
-  sorted.slice(0, SESSION_ORDER.length).forEach((d, i) => (plan[d] = { session: SESSION_ORDER[i] }))
+  sorted.slice(0, program.order.length).forEach((d, i) => (plan[d] = { session: program.order[i] }))
   return plan
 }
 
 /** Sesiones que no entran en los días elegidos */
-export function missingSessions(days?: number[]) {
+export function missingSessions(program: Program, days?: number[]) {
   if (!days) return []
-  return SESSION_ORDER.slice(days.length)
+  return program.order.slice(days.length)
 }

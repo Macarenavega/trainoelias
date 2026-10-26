@@ -110,7 +110,7 @@ export function WorkoutView({ workout, history, timer, onChange, onFinish, onDis
         <section className="card">
           <button className="flex w-full items-center justify-between" onClick={() => setShowWarmup((v) => !v)}>
             <span className="font-semibold">
-              Calentamiento (10') {warmupDone && <span className="text-emerald-600 dark:text-emerald-400">✓</span>}
+              {session.warmupTitle ?? "Calentamiento (10')"} {warmupDone && <span className="text-emerald-600 dark:text-emerald-400">✓</span>}
             </span>
             <span className="text-muted">{showWarmup ? '▲' : '▼'}</span>
           </button>

@@ -3,7 +3,6 @@ import {
   DAY_NAMES,
   DAY_SHORT,
   SESSIONS,
-  SESSION_ORDER,
   alternateFor,
   formatTarget,
   missingSessions,
@@ -12,7 +11,7 @@ import {
   weekKey,
   type SessionId,
 } from '../data/routine'
-import type { AppState } from '../lib/store'
+import { programOf, type AppState } from '../lib/store'
 
 type Props = {
   state: AppState
@@ -25,7 +24,8 @@ type Props = {
 export function TodayView({ state, onStart, onResume, onWeekPlan }: Props) {
   const [now] = useState(() => new Date())
   const today = now.getDay()
-  const plan = planWeek(state.weekPlans[weekKey(now)])[today]
+  const program = programOf(state)
+  const plan = planWeek(program, state.weekPlans[weekKey(now)])[today]
   const [picked, setPicked] = useState<SessionId | undefined>(plan.session)
   const sessionId = picked ?? plan.session
   const doneToday = state.history.some(
@@ -68,7 +68,7 @@ export function TodayView({ state, onStart, onResume, onWeekPlan }: Props) {
         <section>
           <h3 className="mb-2 text-sm font-semibold text-muted">Hacer otra sesión</h3>
           <div className="flex flex-wrap gap-2">
-            {(Object.keys(SESSIONS) as SessionId[]).map((id) => (
+            {program.order.map((id) => (
               <button
                 key={id}
                 className={`chip ${id === sessionId ? 'chip-active' : ''}`}
@@ -150,10 +150,11 @@ function WeekPlanner({
   const [editing, setEditing] = useState(false)
   const ref = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset * 7)
   const key = weekKey(ref)
+  const program = programOf(state)
   const chosen = state.weekPlans[key]
-  const plan = planWeek(chosen)
+  const plan = planWeek(program, chosen)
   const days = chosen ?? WEEK_ORDER.filter((d) => plan[d].session)
-  const missing = missingSessions(chosen)
+  const missing = missingSessions(program, chosen)
   const monday = new Date(`${key}T00:00:00`)
   const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6)
   const today = offset === 0 ? now.getDay() : -1
@@ -163,7 +164,7 @@ function WeekPlanner({
   return (
     <section className="card">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="font-semibold">Semana</h3>
+        <h3 className="font-semibold">Semana · {program.name}</h3>
         <button className="text-sm font-medium text-emerald-700 dark:text-emerald-400" onClick={() => setEditing((v) => !v)}>
           {editing ? 'Listo' : 'Elegir días'}
         </button>
@@ -199,7 +200,8 @@ function WeekPlanner({
             ))}
           </div>
           <p className="mt-2 text-xs text-muted">
-            Las sesiones se reparten en orden: {SESSION_ORDER.map((id) => `Día ${id.slice(1)} (${SESSIONS[id].place})`).join(', ')}.
+            Las sesiones se reparten en orden:{' '}
+            {program.order.map((id) => `${SESSIONS[id].name.split(' — ')[0]} (${SESSIONS[id].place})`).join(', ')}.
           </p>
           {chosen && (
             <button className="mt-2 text-xs underline" onClick={() => onWeekPlan(key, undefined)}>
@@ -208,6 +210,8 @@ function WeekPlanner({
           )}
         </div>
       )}
+
+      {program.priority && <p className="mt-2 text-xs text-muted">{program.priority}</p>}
 
       {missing.length > 0 && (
         <p className="mt-3 rounded-lg bg-amber-50 p-2 text-sm dark:bg-amber-950/40">

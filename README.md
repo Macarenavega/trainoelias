@@ -1,6 +1,11 @@
 # Trainoelias
 
-App para seguir la **Rutina 6 días — Calistenia progresiva + Piernas + Escalada + Movilidad**.
+App para seguir la rutina de calistenia, piernas, escalada y movilidad. Tiene dos programas:
+
+- **Mes 2 (en uso)**: semana tipo v3, 5 días: hipertrofia de pierna + muscle-up + split + movilidad.
+- **Mes 1**: 6 días: calistenia progresiva + piernas + escalada + movilidad.
+
+El programa se elige en Ajustes. Cambiar de programa no borra el historial, y los ejercicios que se repiten conservan la última marca.
 
 Se instala en el celular como una app (PWA) y guarda todo en el propio dispositivo, sin cuenta ni servidor.
 
@@ -25,7 +30,7 @@ npm run build    # compilación de producción
 npm run lint
 ```
 
-Hecho con React + TypeScript + Vite + Tailwind CSS. La rutina está en `src/data/routine.ts`.
+Hecho con React + TypeScript + Vite + Tailwind CSS. La rutina (los dos programas) está en `src/data/routine.ts`.
 
 ## Publicación
 
