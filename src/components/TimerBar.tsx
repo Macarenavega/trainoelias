@@ -11,7 +11,7 @@ export function TimerBar({ timer }: { timer: Timer }) {
   return (
     <div className="fixed inset-x-0 bottom-16 z-20 px-3 pb-2">
       <div
-        className={`mx-auto max-w-xl overflow-hidden rounded-2xl shadow-lg ${
+        className={`mx-auto max-w-xl overflow-hidden rounded-3xl shadow-lg ${
           isRest || resting ? 'bg-sky-600' : 'bg-emerald-600'
         } text-white transition-colors`}
       >
@@ -26,7 +26,7 @@ export function TimerBar({ timer }: { timer: Timer }) {
             <div className="truncate text-sm font-medium">{t.label}</div>
             {multi && <div className="text-xs opacity-80 tabular-nums">Total: {formatClock(timer.remaining)}</div>}
           </div>
-          <div className="text-3xl font-bold tabular-nums">
+          <div className="text-4xl font-light tabular-nums">
             {formatClock(multi ? (timer.phase?.remaining ?? 0) : timer.remaining)}
           </div>
         </div>
